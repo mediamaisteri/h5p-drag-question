@@ -32,12 +32,7 @@
             },
             {
               "label": "Task size",
-              "description": "Specify how large (in px) the play area should be.",
-              "default": {},
-              "fields": [
-                {},
-                {}
-              ]
+              "description": "Specify how large (in px) the play area should be."
             }
           ]
         },
@@ -159,6 +154,9 @@
           "label": "Enable \"Retry\""
         },
         {
+          "label": "Enable \"Check\" button"
+        },
+        {
           "label": "Require user input before the solution can be viewed"
         },
         {
@@ -171,12 +169,7 @@
         },
         {
           "label": "Enable score explanation",
-          "description": "Display a score explanation to user when checking their answers (if the 'Apply penalties' option has been selected).",
-          "showWhen": {
-            "rules": [
-              {}
-            ]
-          }
+          "description": "Display a score explanation to user when checking their answers (if the 'Apply penalties' option has been selected)."
         },
         {
           "label": "Background opacity for draggables",
@@ -185,7 +178,6 @@
         {
           "label": "Drop Zone Highlighting",
           "description": "Choose when to highlight drop zones.",
-          "default": "dragging",
           "options": [
             {
               "label": "When dragging"
@@ -259,6 +251,14 @@
     {
       "label": "Header for panel containing feedback for correct/incorrect answers",
       "default": "Feedback"
+    },
+    {
+      "label": "Textual representation of the score bar for those using a readspeaker",
+      "default": "You got :num out of :total points"
+    },
+    {
+      "label": "Textual representation of the score explanation button",
+      "default": "Show score explanation"
     }
   ]
 }

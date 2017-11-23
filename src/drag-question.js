@@ -8,6 +8,7 @@ import DropZone from './dropzone';
 import Draggable from './draggable';
 
 const $ = H5P.jQuery;
+let numInstances = 0;
 
 /**
  * Constructor
@@ -21,6 +22,7 @@ const $ = H5P.jQuery;
 function C(options, contentId, contentData) {
   var self = this;
   var i, j;
+  numInstances++;
   this.id = this.contentId = contentId;
   H5P.Question.call(self, 'dragquestion');
   this.options = $.extend(true, {}, {
@@ -35,6 +37,8 @@ function C(options, contentId, contentData) {
     correctAnswer: 'Correct answer',
     wrongAnswer: 'Wrong answer',
     feedbackHeader: 'Feedback',
+    scoreBarLabel: 'You got :num out of :total points',
+    scoreExplanationButtonLabel: 'Show score explanation',
     question: {
       settings: {
         questionTitle: 'Drag and drop',
@@ -52,6 +56,7 @@ function C(options, contentId, contentData) {
     overallFeedback: [],
     behaviour: {
       enableRetry: true,
+      enableCheckButton: true,
       preventResize: false,
       singlePoint: false,
       showSolutionsRequiresInput: true,
@@ -77,7 +82,7 @@ function C(options, contentId, contentData) {
 
   this.backgroundOpacity = (this.options.behaviour.backgroundOpacity === undefined || this.options.behaviour.backgroundOpacity.trim() === '') ? undefined : this.options.behaviour.backgroundOpacity;
 
-  self.$noDropZone = $('<div class="h5p-dq-no-dz" style="display:none;"><span class="h5p-hidden-read">' + self.options.noDropzone + '</span></div>');
+  self.$noDropZone = $('<div class="h5p-dq-no-dz" role="button" style="display:none;"><span class="h5p-hidden-read">' + self.options.noDropzone + '</span></div>');
 
   // Initialize controls for good a11y
   var controls = getControls(self.draggables, self.dropZones, self.$noDropZone[0]);
@@ -270,7 +275,7 @@ C.prototype.registerDomElements = function () {
 
   // Register introduction section
   if (self.options.question.settings.showTitle) {
-    self.$introduction = $('<p class="h5p-dragquestion-introduction" tabindex="-1">' + self.options.question.settings.questionTitle + '</p>');
+    self.$introduction = $('<p class="h5p-dragquestion-introduction" id="dq-intro-' + numInstances + '">' + self.options.question.settings.questionTitle + '</p>');
     self.setIntroduction(self.$introduction);
   }
 
@@ -496,7 +501,7 @@ C.prototype.createQuestionContent = function () {
   // If reattaching, we no longer show solution. So forget that we
   // might have done so before.
 
-  this.$container = $('<div class="h5p-inner"></div>');
+  this.$container = $('<div class="h5p-inner" role="application" aria-labelledby="dq-intro-' + numInstances + '"></div>');
   if (this.options.question.settings.background !== undefined) {
     this.$container.css('backgroundImage', 'url("' + H5P.getPath(this.options.question.settings.background.path, this.id) + '")');
   }
@@ -535,8 +540,11 @@ C.prototype.createQuestionContent = function () {
 };
 
 C.prototype.registerButtons = function () {
-  // Add show score button
-  this.addSolutionButton();
+  if (this.options.behaviour.enableCheckButton) {
+    // Add show score button
+    this.addSolutionButton();
+  }
+
   this.addRetryButton();
 };
 
@@ -740,29 +748,6 @@ C.prototype.enableDraggables = function () {
 };
 
 /**
- * Get amount of empty drop zones.
- *
- * @param {number} totalDropZones Total drop zones in question
- * @param {Array} correctDZs Correct drop zones for draggables
- * @return {number} Amount of empty drop zones in question
- */
-C.prototype.getDropzoneWithoutAnswer = function (totalDropZones, correctDZs) {
-  //Index of correctDZs is the draggable, and value is the drop zone it belongs to
-  var correctDropZones = [];
-  correctDZs.forEach(function (draggable) {
-    if (draggable.length) {
-      draggable.forEach(function (dropZone) {
-        if (correctDropZones.indexOf(dropZone) < 0) {
-          correctDropZones.push(dropZone);
-        }
-      });
-    }
-  });
-
-  return totalDropZones - correctDropZones.length - this.numDropZonesWithoutElements;
-};
-
-/**
  * Shows the correct solutions on the boxes and disables input and buttons depending on settings.
  * @public
  * @params {Boolean} skipVisuals Skip visual animations.
@@ -771,10 +756,11 @@ C.prototype.showAllSolutions = function (skipVisuals) {
   this.points = 0;
   this.rawPoints = 0;
 
-  // One correct point for each "no solution" dropzone
-  var emptyDropzones = this.getDropzoneWithoutAnswer(this.dropZones.length, this.correctDZs);
-  this.points += emptyDropzones;
-  this.rawPoints += emptyDropzones;
+  // One correct point for each "no solution" dropzone if there are no solutions
+  if (this.blankIsCorrect) {
+    this.points = 1;
+    this.rawPoints = 1;
+  }
 
   var scorePoints;
   if (!skipVisuals && this.options.behaviour.showScorePoints && !this.options.behaviour.singlePoint && this.options.behaviour.applyPenalties) {
@@ -871,10 +857,8 @@ C.prototype.calculateMaxScore = function () {
   var max = 0;
 
   if (this.blankIsCorrect) {
-    return this.getDropzoneWithoutAnswer(this.dropZones.length, this.correctDZs);
+    return 1;
   }
-
-  max += this.getDropzoneWithoutAnswer(this.dropZones.length, this.correctDZs);
 
   var elements = this.options.question.task.elements;
   for (var i = 0; i < elements.length; i++) {
@@ -938,7 +922,7 @@ C.prototype.showScore = function () {
   var actualPoints = (this.options.behaviour.applyPenalties || this.options.behaviour.singlePoint) ? this.points : this.rawPoints;
   var scoreText = H5P.Question.determineOverallFeedback(this.options.overallFeedback, actualPoints / maxScore).replace('@score', actualPoints).replace('@total', maxScore);
   var helpText = (this.options.behaviour.enableScoreExplanation && this.options.behaviour.applyPenalties) ? this.options.scoreExplanation : false;
-  this.setFeedback(scoreText, actualPoints, maxScore, undefined, helpText);
+  this.setFeedback(scoreText, actualPoints, maxScore, this.options.scoreBarLabel, helpText, undefined, this.options.scoreExplanationButtonLabel);
 };
 
 /**
@@ -1103,7 +1087,7 @@ var getControls = function (draggables, dropZones, noDropzone) {
     for (var i = 0; i < dropZones.length; i++) {
       var dropZone = dropZones[i];
 
-      if (dropZone.accepts(selected.draggable)) {
+      if (dropZone.accepts(selected.draggable, draggables)) {
         dropZone.highlight();
         controls.drop.addElement(dropZone.$dropZone[0]);
         if (!$first || selected.element.dropZone === dropZone.id) {
